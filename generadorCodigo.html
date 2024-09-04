@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generador de Código SQL</title>
+</head>
+<body>
+    <h1>Generador de Código</h1>
+        <label for="nombreProcedimiento">Nombre del Procedimiento:</label><br>
+        <input type="text" id="nombreProcedimiento" placeholder="Ej: PerfilOcupacional" required><br><br>
+
+        <label for="nombreEsquema">Nombre del Esquema:</label><br>
+        <input type="text" id="nombreEsquema" placeholder="Ej: USR_PROC" required><br><br>
+
+        <label for="tableName">Nombre de la tabla:</label><br>
+        <input type="text" id="tableName" placeholder="Ej: PR_PERFIL_OCUPACIONAL" required><br><br>
+
+        <label for="tableComment">Comentario de la tabla:</label><br>
+        <input type="text" id="tableComment" placeholder="Ej: Tabla referente a ..." required><br><br>
+
+        <label for="columns">Definición de columnas (formato: columna, tipo, tamaño, nullable, comentario):</label><br>
+        <textarea id="columns" name="columns" rows="10" cols="200" placeholder="
+CONSECUTIVO	,	NUMBER	,		,	NOT NULL	,	Número de secuencia para identificar cada registro	;
+USUARIO_CREADOR	,	VARCHAR2	,	(30)	,	NOT NULL	,	Usuario que creó el registro.	;
+FECHA_CREACION	,	DATE	,		,		,	Fecha y hora de creación del registro.	;
+USUARIO_MODIFICADOR	,	VARCHAR2	,	(30)	,		,	Usuario que modificó el registro.	;
+FECHA_MODIFICACION	,	DATE	,		,		,	Fecha y hora de la última modificación del registro.;" required></textarea><br><br>
+
+
+<button onclick="generarCodigoEntity()">Entity</button>
+<button onclick="generarCodigoPayload()">Payload</button>
+<button onclick="generarCodigoService()">Service</button>
+<button onclick="generarCodigoImpl()">Impl</button>
+<button onclick="generarCodigoContoller()">Controller</button>
+<button onclick="generateSQL()">SQL</button>
+
+    <h2>Código generado:</h2>
+    <pre id="output"></pre>
+
+    <script src="./JavaScript/SQL.js"></script>
+    <script src="./JavaScript/entity.js"></script>
+    <script src="./JavaScript/payload.js"></script>
+    <script src="./JavaScript/service.js"></script>
+    <script src="./JavaScript/impl.js"></script>
+    <script src="./JavaScript/controller.js"></script>
+</body>
+</html>
+
