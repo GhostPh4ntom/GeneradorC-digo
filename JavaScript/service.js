@@ -1,5 +1,4 @@
 function generarCodigoService() {
-    alert("Entro a Service")
     
         const nombreProcedimiento = document.getElementById("nombreProcedimiento").value;
         const nombreEsquema = document.getElementById("nombreEsquema").value;
@@ -18,6 +17,7 @@ function generarCodigoService() {
     import org.springframework.http.ResponseEntity;
     import co.gov.policia.pwa.entity.${nombreProcedimiento};
     
+    //MODIFIQUE EL SIGUIENTE CÓDIGO DE ACUERDO A LA NECESIDAD
     public interface ${serviceName} extends Serializable {
         
         public ResponseEntity<?> crearConducta(${nombreProcedimiento} conducta);

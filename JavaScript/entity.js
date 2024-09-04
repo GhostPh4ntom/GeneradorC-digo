@@ -1,83 +1,52 @@
 function generarCodigoEntity() {
-    alert("ingreso a entity");
-    const nombreProcedimiento = document.getElementById("nombreProcedimiento").value;
-    const nombreEsquema = document.getElementById("nombreEsquema").value;
-    const tableName = document.getElementById("tableName").value;
-    const columnsText = document.getElementById("columns").value;
+    const nombreProcedimiento = document.getElementById("nombreProcedimiento").value.trim();
+    const nombreEsquema = document.getElementById("nombreEsquema").value.trim();
+    const tableName = document.getElementById("tableName").value.trim();
+    const tableComment = document.getElementById("tableComment").value.trim();
+    const columns = document.getElementById("columns").value.trim().split(";").filter(col => col.trim() !== "");
 
-    // Procesar las columnas
-    const columnas = columnsText.trim().split(";");
-    let fields = "";
-    let imports = "";
+    let codigo = `// back\\src\\main\\java\\co\\gov\\policia\\pwa\\entity\\${nombreProcedimiento}.java\n\n`;
 
-    columnas.forEach(columna => {
-        const parts = columna.split(",");
-        const nombre = parts[0].trim();
-        const tipo = parts[1].trim();
-        const tamaño = parts[2].trim();
-        const nullable = parts[3].trim().toLowerCase() !== "not null";
-        const comentario = parts[4] ? parts[4].trim() : "";
+    codigo += `package co.gov.policia.pwa.entity;\n\n`;
+    codigo += `import java.util.Date;\n\n`;
+    codigo += `import javax.persistence.Cacheable;\n`;
+    codigo += `import javax.persistence.Column;\n`;
+    codigo += `import javax.persistence.Entity;\n`;
+    codigo += `import javax.persistence.Id;\n`;
+    codigo += `import javax.persistence.Table;\n\n`;
+    codigo += `import com.fasterxml.jackson.annotation.JsonFormat;\n\n`;
+    codigo += `import lombok.AllArgsConstructor;\n`;
+    codigo += `import lombok.Builder;\n`;
+    codigo += `import lombok.Data;\n`;
+    codigo += `import lombok.NoArgsConstructor;\n\n`;
+    codigo += `@Entity\n`;
+    codigo += `@Data\n`;
+    codigo += `@AllArgsConstructor\n`;
+    codigo += `@NoArgsConstructor\n`;
+    codigo += `@Builder\n`;
+    codigo += `@Cacheable(false)\n`;
+    codigo += `@Table(schema = "${nombreEsquema}", name = "${tableName}")\n`;
+    codigo += `public class ${nombreProcedimiento} {\n`;
 
-        let tipoJava;
-        switch (tipo) {
-            case "NUMBER":
-                tipoJava = tamaño ? "BigDecimal" : "Long";
-                if (!imports.includes("import java.math.BigDecimal;") && tipoJava === "BigDecimal") {
-                    imports += "import java.math.BigDecimal;\n";
-                }
-                break;
-            case "VARCHAR2":
-                tipoJava = "String";
-                break;
-            case "DATE":
-                tipoJava = "Date";
-                if (!imports.includes("import java.util.Date;")) {
-                    imports += "import java.util.Date;\n";
-                }
-                if (!imports.includes("import com.fasterxml.jackson.annotation.JsonFormat;")) {
-                    imports += "import com.fasterxml.jackson.annotation.JsonFormat;\n";
-                }
-                break;
-            default:
-                tipoJava = "String"; // Default type
+    columns.forEach(column => {
+        const [name, type, size, nullable, comment] = column.split(",").map(item => item.trim());
+
+        const columnType = (type === "NUMBER") ? "Long" : (type.startsWith("VARCHAR2") ? "String" : "Date");
+        const columnNullable = nullable.includes("NOT NULL") ? "false" : "true";
+
+        if (name === "CONSECUTIVO") {
+            codigo += `    @Id\n`;
         }
 
-        fields += `
-    @Column(name = "${nombre}"${nullable ? "" : ", nullable = false"})
-    ${tipoJava === "Date" ? `@JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "dd/MM/yyyy", timezone = "America/Bogota", locale = "es_CO")\n    ` : ""}private ${tipoJava} ${nombre.toLowerCase()};\n`;
+        if (type === "DATE") {
+            codigo += `    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "dd/MM/yyyy", timezone = "America/Bogota", locale = "es_CO")\n`;
+        }
+
+        codigo += `    @Column(name = "${name}", nullable = ${columnNullable})\n`;
+        codigo += `    private ${columnType} ${name.toLowerCase()};\n\n`;
     });
 
-    const entityCode = `
-// back\\src\\main\\java\\co\\gov\\policia\\pwa\\entity\\${nombreProcedimiento}.java
+    codigo += `}\n`;
 
-package co.gov.policia.pwa.entity;
-
-${imports}
-import javax.persistence.Cacheable;
-import javax.persistence.Column;
-import javax.persistence.Entity;
-import javax.persistence.Id;
-import javax.persistence.Table;
-
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
-@Entity
-@Data
-@AllArgsConstructor
-@NoArgsConstructor
-@Builder
-@Cacheable(false)
-@Table(schema = "${nombreEsquema}", name = "${tableName}")
-public class ${nombreProcedimiento} {
-
-    @Id
-    @Column(name = "CONSECUTIVO", nullable = false)
-    private Long consecutivo;${fields}
-}
-`;
-
-    document.getElementById("output").textContent = entityCode;
+    document.getElementById("output").textContent = codigo;
 }

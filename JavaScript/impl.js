@@ -1,38 +1,73 @@
 function generarCodigoImpl() {
-    // Obtén los valores ingresados por el usuario
-    const nombreProcedimiento = document.getElementById("nombreProcedimiento").value.trim();
-    const nombreEsquema = document.getElementById("nombreEsquema").value.trim();
-    const nombreTabla = document.getElementById("tableName").value.trim();
-    const comentarioTabla = document.getElementById("tableComment").value.trim();
-    const columnasTexto = document.getElementById("columns").value.trim();
+  const nombreProcedimiento = document
+    .getElementById("nombreProcedimiento")
+    .value.trim();
+  const nombreEsquema = document.getElementById("nombreEsquema").value.trim();
+  const tableName = document.getElementById("tableName").value.trim();
+  const tableComment = document.getElementById("tableComment").value.trim();
+  const columns = document.getElementById("columns").value.trim();
 
-    // Validación de campos obligatorios
-    if (!nombreProcedimiento || !nombreEsquema || !nombreTabla || !comentarioTabla || !columnasTexto) {
-        alert("Todos los campos son obligatorios.");
-        return;
+  if (
+    !nombreProcedimiento ||
+    !nombreEsquema ||
+    !tableName ||
+    !tableComment ||
+    !columns
+  ) {
+    alert("Todos los campos son obligatorios.");
+    return;
+  }
+
+  // Parse columns
+  const columnLines = columns.split(";");
+  const inputParams = [];
+  const outputParams = [];
+
+  columnLines.forEach((line) => {
+    const parts = line.split(",");
+    if (parts.length >= 2) {
+      const columnName = parts[0].trim();
+      const columnType = parts[1].trim().toUpperCase();
+      let jsType = "String"; // Default type
+
+      if (columnType.includes("NUMBER")) {
+        jsType = "Long";
+      } else if (columnType.includes("DATE")) {
+        jsType = "Date";
+      }
+
+      inputParams.push({
+        name: columnName,
+        type: jsType,
+      });
     }
+  });
 
-    // Procesar las columnas
-    const columnas = columnasTexto.split(';').map(col => col.trim()).filter(col => col);
+  // Generate input parameter code
+  const inputParamCode = inputParams
+    .map(
+      (param) =>
+        `storedProcedureQuery.registerStoredProcedureParameter("i_${param.name}", ${param.type}.class, ParameterMode.IN);`
+    )
+    .join("\n        ");
 
-    let parametrosIN = '';
-    let parametrosSet = '';
+  const setParameterCode = inputParams
+    .map(
+      (param) =>
+        `storedProcedureQuery.setParameter("i_${
+          param.name
+        }", conducta.get${capitalize(param.name.toLowerCase())}());`
+    )
+    .join("\n        ");
 
-    columnas.forEach((col) => {
-        const [nombreColumna, tipo, , nullable] = col.split(',').map(item => item.trim());
-        
-        if (nombreColumna && tipo) {
-            // Generar los parámetros de entrada
-            parametrosIN += `storedProcedureQuery.registerStoredProcedureParameter("i_${nombreColumna}", ${tipo === 'VARCHAR2' ? 'String' : tipo === 'NUMBER' ? 'Long' : 'Date'}.class, ParameterMode.IN);\n`;
+  const outputCode = `
+    storedProcedureQuery.registerStoredProcedureParameter("o_CONSECUTIVO", Long.class, ParameterMode.OUT);
+    storedProcedureQuery.registerStoredProcedureParameter("o_RESPUESTA", Long.class, ParameterMode.OUT);
+    storedProcedureQuery.registerStoredProcedureParameter("o_DESC_RESULTADO", String.class, ParameterMode.OUT);`;
 
-            // Generar los valores set
-            parametrosSet += `storedProcedureQuery.setParameter("i_${nombreColumna}", conducta.get${nombreColumna.charAt(0).toUpperCase() + nombreColumna.slice(1).toLowerCase()}());\n`;
-        }
-    });
+  const generatedCode = `
 
-    // Estructura básica del código
-    const codigoImpl = `
-// back\\src\\main\\java\\co\\gov\\policia\\pwa\\service\\impl\\${nombreProcedimiento}ServiceImpl.java
+ // back\src\main\java\co\gov\policia\pwa\service\impl\PrConductasServiceImpl.java
 
 package co.gov.policia.pwa.service.impl;
 
@@ -55,27 +90,27 @@ import co.gov.policia.pwa.payload.response.${nombreProcedimiento}Response;
 import co.gov.policia.pwa.service.${nombreProcedimiento}Service;
 
 @Service
-public class ${nombreProcedimiento}ServiceImpl extends AbstractService implements ${nombreProcedimiento}Service {
+public class ${nombreProcedimiento}ServiceImpl extends AbstractService implements ${nombreProcedimiento}Service{
     
     @Lazy
     @Autowired
-    ${nombreProcedimiento}Service ${nombreProcedimiento.charAt(0).toLowerCase() + nombreProcedimiento.slice(1)}Service;
+    ${nombreProcedimiento}Service ${nombreProcedimiento.toLowerCase()}Service;
 
     @Override
     @Transactional
-    public ResponseEntity<?> crear${nombreProcedimiento}(${nombreProcedimiento} conducta){
+    public ResponseEntity<?> crear${capitalize(
+      nombreProcedimiento
+    )}(${capitalize(nombreProcedimiento)} conducta){
 
-        String procedimiento = "PK_${nombreTabla}.PR_INSERT_${nombreTabla}";
+        String procedimiento= "PK_${tableName}.PR_INSERT_${tableName}";
 
-        StoredProcedureQuery storedProcedureQuery = em.createStoredProcedureQuery(procedimiento);
+        StoredProcedureQuery storedProcedureQuery = em.createStoredProcedureQuery(procedimiento);        
 
-        ${parametrosIN}
+        ${inputParamCode}
 
-        storedProcedureQuery.registerStoredProcedureParameter("o_CONSECUTIVO", Long.class, ParameterMode.OUT);
-        storedProcedureQuery.registerStoredProcedureParameter("o_RESPUESTA", Long.class, ParameterMode.OUT);
-        storedProcedureQuery.registerStoredProcedureParameter("o_DESC_RESULTADO", String.class, ParameterMode.OUT);
+        ${outputCode}
 
-        ${parametrosSet}
+        ${setParameterCode}
         
         storedProcedureQuery.execute();
 
@@ -86,10 +121,173 @@ public class ${nombreProcedimiento}ServiceImpl extends AbstractService implement
         return ResponseEntity.ok(new ${nombreProcedimiento}Response(null, response, responseDescription, responseConsecutivo));
     }
 
-    // Código adicional para otros métodos como eliminar, obtener por id, etc.
-    ...
-}`;
+   // MODIFIQUE EL SIGUIENTE CÓDIGO DE ACUERDO A LA NECESIDAD 
+    
+    @Lazy
+    @Override
+    @Transactional
+    public ResponseEntity<?> eliminarConducta(PrConductas conducta) {
 
-    // Mostrar el código generado en el área de salida
-    document.getElementById("output").textContent = codigoImpl;
+        String procedimiento= "PK_PR_CONDUCTAS.PR_DELETE_PR_CONDUCTAS";
+        
+        StoredProcedureQuery storedProcedureQuery = em.createStoredProcedureQuery(procedimiento);        
+
+        storedProcedureQuery.registerStoredProcedureParameter("i_CONSECUTIVO", Long.class, ParameterMode.IN);
+        storedProcedureQuery.registerStoredProcedureParameter("o_RESPUESTA", Long.class, ParameterMode.OUT);
+        storedProcedureQuery.registerStoredProcedureParameter("o_DESC_RESULTADO", String.class, ParameterMode.OUT);
+
+        storedProcedureQuery.setParameter("i_CONSECUTIVO", conducta.getConsecutivo());
+
+        storedProcedureQuery.execute();
+
+        Long response = (Long) storedProcedureQuery.getOutputParameterValue("o_RESPUESTA");
+        String responseDescription = (String) storedProcedureQuery.getOutputParameterValue("o_DESC_RESULTADO");        
+
+        return ResponseEntity.ok(new PrConductasResponse(null, response, responseDescription, null));
+    }
+
+    @SuppressWarnings("unchecked")
+    @Override
+    @Transactional
+    public ResponseEntity<?> obtenerConductaPorId(Long consecutivo){
+        List<PrConductas> listaConductas = new ArrayList<>();
+
+        Long code = null;
+        String mensaje = "";
+        Query q = null;
+
+        try {
+            String query = "SELECT * FROM PR_CONDUCTAS WHERE CONSECUTIVO = ?";
+
+            q = em.createNativeQuery(query, PrConductas.class);
+            q.setParameter(1, consecutivo);
+
+            listaConductas = q.getResultList();
+
+            if(listaConductas.size() > 0){
+                code = 0L;
+                mensaje = "se encontró información";
+            }else{
+                code = 2L;
+                mensaje = "No se encontró información";
+            }
+
+            return ResponseEntity.ok(new PrConductasResponse(listaConductas, code, mensaje, null));
+
+        } catch (Exception e) {
+            return ResponseEntity.ok("falló consultar conducta por id");
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    @Override
+    @Transactional
+    public ResponseEntity<?> obtenerConductaPorIdDelito(Long consecutivoDelito){
+
+        List<PrConductas> listaConductas = new ArrayList<>();
+
+        Long code = null;
+        String mensaje = "";
+        Query q = null;
+
+        try {
+            String query = "SELECT * FROM PR_CONDUCTAS WHERE CONS_DELITO = ?";
+
+            q = em.createNativeQuery(query, PrConductas.class);
+            q.setParameter(1, consecutivoDelito);
+
+            listaConductas = q.getResultList();
+
+            if(listaConductas.size() > 0){
+                code = 0L;
+                mensaje = "se encontró información";
+            }else{
+                code = 2L;
+                mensaje = "No se encontró información";
+            }
+
+            return ResponseEntity.ok(new PrConductasResponse(listaConductas, code, mensaje, null));
+
+        } catch (Exception e) {
+            return ResponseEntity.ok("falló consultar conducta por id");
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    @Override
+    @Transactional
+    public ResponseEntity<?> obtenerTipoConductaPorIdTipo(Long consecutivoTipoDelito){
+
+        List<PrConductas> listaConductas = new ArrayList<>();
+
+        Long code = null;
+        String mensaje = "";
+        Query q = null;
+
+        try {
+            String query = "SELECT * FROM PR_CONDUCTAS WHERE CONS_TIPO_DELITO = ?";
+
+            q = em.createNativeQuery(query, PrConductas.class);
+            q.setParameter(1, consecutivoTipoDelito);
+
+            listaConductas = q.getResultList();
+
+            if(listaConductas.size() > 0){
+                code = 0L;
+                mensaje = "se encontró información";
+            }else{
+                code = 2L;
+                mensaje = "No se encontró información";
+            }
+
+            return ResponseEntity.ok(new PrConductasResponse(listaConductas, code, mensaje, null));
+
+        } catch (Exception e) {
+            return ResponseEntity.ok("falló consultar conducta por id");
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    @Override
+    @Transactional
+    public ResponseEntity<?> obtenerConductasPorProcedimiento(Long consecutivoProcedimiento){
+        List<PrConductas> listaConductas = new ArrayList<>();
+
+        Long code = null;
+        String mensaje;
+        Query q = null;
+
+        try {
+            //String query = "SELECT * FROM PR_CONDUCTAS WHERE CONS_PROCEDIMIENTO = ?";
+            String query = "SELECT PRC.CONSECUTIVO, PRC.CONS_TIPO_DELITO, PRC.CONS_DELITO, (SELECT ADM.DESCRIPCION FROM ADM_LISTA_CONDUCTAS ADM WHERE PRC.CONS_DELITO=ADM.CONSECUTIVO) descdelito, (SELECT ADM.DESCRIPCION FROM ADM_LISTA_CONDUCTAS ADM WHERE PRC.CONS_TIPO_DELITO=ADM.CONSECUTIVO) descconducta  FROM PR_CONDUCTAS PRC WHERE PRC.CONS_PROCEDIMIENTO = ?";
+
+            q = em.createNativeQuery(query);
+
+            q.setParameter(1, consecutivoProcedimiento);
+
+            listaConductas = q.getResultList();
+
+            if(listaConductas.size() > 0){
+                code = 0L;
+                mensaje = "se encontró información";
+            }else {
+                code = 2L;
+                mensaje = "No se encontró información";
+            }
+
+            return ResponseEntity.ok(new PrConductasResponse(listaConductas, code, mensaje, consecutivoProcedimiento));
+
+        } catch (Exception e) {
+            return ResponseEntity.ok("falló consultar conducta por procedimiento");
+        }
+    }
+
+}
+`;
+
+  document.getElementById("output").textContent = generatedCode;
+}
+
+function capitalize(string) {
+  return string.charAt(0).toUpperCase() + string.slice(1);
 }
